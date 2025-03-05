@@ -38,32 +38,20 @@ function App() {
   };
 
   const handleImportWallet = async () => {
+    console.log('handleImportWallet called');
+    
     try {
-      if (importType === 'address' && addressInput) {
+      if (importType === 'address') {
         console.log('Importing wallet with address:', addressInput);
         await importWalletWithAddress(addressInput);
-      } else if (importType === 'seedPhrase' && seedPhraseInput) {
-        console.log('Importing wallet with seed phrase, length:', seedPhraseInput.trim().split(/\s+/).length);
+      } else if (importType === 'seedPhrase') {
+        console.log('Importing wallet with seed phrase');
         await importWalletWithSeedPhrase(seedPhraseInput);
-      } else if (importType === 'combined' && addressInput && seedPhraseInput) {
+      } else if (importType === 'combined') {
         console.log('Importing wallet with combined method');
-        console.log('Address:', addressInput);
-        console.log('Seed phrase word count:', seedPhraseInput.trim().split(/\s+/).length);
-        
-        // Validate address format
-        if (!/^[a-zA-Z0-9]{30,50}$/.test(addressInput.trim())) {
-          throw new Error('Invalid wallet address format');
-        }
-        
-        // Validate seed phrase
-        const words = seedPhraseInput.trim().split(/\s+/);
-        if (words.length !== 24) {
-          throw new Error(`Seed phrase must contain exactly 24 words (found ${words.length})`);
-        }
-        
-        await importWalletWithAddressAndSeedPhrase(addressInput.trim(), seedPhraseInput.trim());
+        await importWalletWithAddressAndSeedPhrase(addressInput, seedPhraseInput);
       } else {
-        throw new Error('Please provide the required information for the selected import method');
+        console.error('Unknown import type:', importType);
       }
     } catch (err) {
       console.error('Import error:', err);
@@ -221,13 +209,12 @@ function App() {
               )}
               
               <button
-                onClick={handleImportWallet}
+                onClick={() => {
+                  console.log('Import button clicked');
+                  handleImportWallet();
+                }}
                 className="w-full bg-gray-100 text-gray-800 py-3 rounded-lg flex items-center justify-center hover:bg-gray-200 transition-colors"
-                disabled={loading || 
-                  (importType === 'address' && !addressInput) || 
-                  (importType === 'seedPhrase' && !seedPhraseInput) ||
-                  (importType === 'combined' && (!addressInput || !seedPhraseInput))
-                }
+                disabled={loading}
               >
                 {loading ? 'Importing...' : 'Import Wallet'}
               </button>

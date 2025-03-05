@@ -99,27 +99,10 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
       setError(null);
       
       console.log('WalletContext: Importing wallet with address and seed phrase');
-      
-      if (!address || !seedPhrase) {
-        throw new Error('Both wallet address and seed phrase are required');
-      }
-      
-      // Basic validation
-      if (address.trim().length < 30) {
-        throw new Error('Invalid wallet address format');
-      }
-      
-      const words = seedPhrase.trim().split(/\s+/);
-      if (words.length !== 24) {
-        throw new Error(`Seed phrase must contain exactly 24 words (found ${words.length})`);
-      }
+      console.log('Address:', address);
+      console.log('Seed phrase length:', seedPhrase.length);
       
       const importedWallet = await piWalletService.importWalletFromAddressAndSeedPhrase(address, seedPhrase);
-      
-      if (!importedWallet) {
-        throw new Error('Failed to import wallet - no wallet returned');
-      }
-      
       console.log('WalletContext: Successfully imported wallet');
       setWallet(importedWallet);
     } catch (err) {
