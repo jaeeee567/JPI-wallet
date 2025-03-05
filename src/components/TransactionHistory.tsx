@@ -4,27 +4,24 @@ import { useWallet } from '../services/WalletContext';
 import { Transaction } from '../services/piWalletService';
 
 interface TransactionHistoryProps {
+  transactions?: Transaction[];
   limit?: number;
   showViewAll?: boolean;
   onViewAll?: () => void;
 }
 
 const TransactionHistory: React.FC<TransactionHistoryProps> = ({ 
+  transactions,
   limit, 
   showViewAll = false,
   onViewAll
 }) => {
   const { wallet, formatPiAmount, formatTimestamp, formatAddress } = useWallet();
+  
+  // Use provided transactions or get from wallet
+  const txList = transactions || (wallet ? wallet.transactions : []);
 
-  if (!wallet) {
-    return (
-      <div className="text-center py-8 text-gray-400">
-        No wallet loaded
-      </div>
-    );
-  }
-
-  if (wallet.transactions.length === 0) {
+  if (!txList.length) {
     return (
       <div className="text-center py-8 text-gray-400">
         No transactions yet
@@ -32,15 +29,14 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
     );
   }
 
-  const transactions = limit 
-    ? wallet.transactions.slice(0, limit) 
-    : wallet.transactions;
+  // Apply limit if specified
+  const displayedTransactions = limit ? txList.slice(0, limit) : txList;
 
   return (
-    <div className="space-y-4">
-      {transactions.map((transaction) => (
+    <div className="bg-white rounded-lg shadow-sm">
+      {displayedTransactions.map((transaction) => (
         <TransactionItem 
-          key={transaction.id} 
+          key={transaction.id}
           transaction={transaction}
           formatPiAmount={formatPiAmount}
           formatTimestamp={formatTimestamp}
@@ -48,13 +44,15 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
         />
       ))}
       
-      {showViewAll && limit && wallet.transactions.length > limit && (
-        <button 
-          onClick={onViewAll}
-          className="w-full py-3 text-center text-orange-400 hover:text-orange-300 bg-white/5 rounded-xl"
-        >
-          View All Transactions
-        </button>
+      {showViewAll && txList.length > (limit || 0) && onViewAll && (
+        <div className="p-3 text-center border-t border-gray-100">
+          <button 
+            onClick={onViewAll}
+            className="text-blue-500 hover:text-blue-700 text-sm font-medium"
+          >
+            View all transactions
+          </button>
+        </div>
       )}
     </div>
   );

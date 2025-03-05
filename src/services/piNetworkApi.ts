@@ -5,13 +5,13 @@
  * It uses environment variables for configuration.
  */
 
-// API configuration from environment variables
-const API_KEY = import.meta.env.VITE_PI_NETWORK_API_KEY;
-const API_URL = import.meta.env.VITE_PI_NETWORK_API_URL || 'https://api.minepi.com/v2';
+// API configuration from environment variables or localStorage
+const API_KEY = import.meta.env.VITE_PI_NETWORK_API_KEY || localStorage.getItem('PI_NETWORK_API_KEY');
+const API_URL = import.meta.env.VITE_PI_NETWORK_API_URL || localStorage.getItem('PI_NETWORK_API_URL') || 'https://api.minepi.com/v2';
 
 // Check if API key is configured
 if (!API_KEY) {
-  console.warn('Pi Network API key is not configured. Set VITE_PI_NETWORK_API_KEY in your .env file.');
+  console.warn('Pi Network API key is not configured. Please set it in the API configuration panel.');
 }
 
 /**
@@ -146,4 +146,18 @@ export function isApiConfigured(): boolean {
  */
 export async function getPiExchangeRate(): Promise<ApiResponse<{ usd: number }>> {
   return apiRequest<{ usd: number }>('/exchange-rates/pi-usd');
+}
+
+/**
+ * Set API key at runtime
+ */
+export function setApiKey(apiKey: string): void {
+  localStorage.setItem('PI_NETWORK_API_KEY', apiKey);
+}
+
+/**
+ * Set API URL at runtime
+ */
+export function setApiUrl(apiUrl: string): void {
+  localStorage.setItem('PI_NETWORK_API_URL', apiUrl);
 }

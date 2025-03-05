@@ -6,6 +6,8 @@ import QRCodeModal from './components/QRCodeModal';
 import TransactionHistory from './components/TransactionHistory';
 import TransactionHistoryView from './components/TransactionHistoryView';
 import SettingsView from './components/SettingsView';
+import ApiKeySetup from './components/ApiKeySetup';
+import * as piNetworkApi from './services/piNetworkApi';
 import { ArrowUpRight, ArrowDownLeft, QrCode, Settings, History, Copy, LogOut, RefreshCw } from 'lucide-react';
 
 function App() {
@@ -31,6 +33,18 @@ function App() {
   const [addressInput, setAddressInput] = useState('');
   const [seedPhraseInput, setSeedPhraseInput] = useState('');
   const [importType, setImportType] = useState<'address' | 'seedPhrase' | 'combined'>('combined');
+  const [apiKeyConfigured, setApiKeyConfigured] = useState(false);
+
+  useEffect(() => {
+    // Check if API key is configured
+    const apiKey = import.meta.env.VITE_PI_NETWORK_API_KEY || localStorage.getItem('PI_NETWORK_API_KEY');
+    setApiKeyConfigured(!!apiKey);
+  }, []);
+
+  const handleApiKeySet = (apiKey: string) => {
+    piNetworkApi.setApiKey(apiKey);
+    setApiKeyConfigured(true);
+  };
 
   // Handle wallet creation or import
   const handleCreateWallet = async () => {
@@ -75,74 +89,101 @@ function App() {
       case 'settings':
         return <SettingsView onLogout={handleLogout} />;
       default:
-        return renderWalletView();
+        return renderMainView();
     }
   };
 
-  // Render the wallet view (default)
-  const renderWalletView = () => {
+  const renderMainView = () => {
     if (!wallet) {
       return renderWalletCreation();
     }
-
+    
     return (
       <div className="p-4">
-        <div className="bg-white rounded-lg shadow-md p-6 mb-4">
-          <div className="flex justify-between items-center mb-4">
-            <div>
-              <h2 className="text-xl font-bold text-gray-800">My Wallet</h2>
-              <div className="flex items-center mt-1">
-                <p className="text-sm text-gray-600">{formatAddress(wallet.address)}</p>
-                <button 
-                  onClick={copyAddressToClipboard} 
-                  className="ml-2 text-orange-500 hover:text-orange-600"
-                  title="Copy address"
-                >
-                  <Copy size={14} />
-                </button>
-              </div>
+        {renderWalletDashboard()}
+        
+        <div className="mt-6 grid grid-cols-2 gap-4">
+          <button
+            onClick={() => setShowSendModal(true)}
+            className="flex items-center justify-center bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+            disabled={wallet.isViewOnly}
+          >
+            <ArrowUpRight className="mr-2" size={20} />
+            <span>Send</span>
+          </button>
+          
+          <button
+            onClick={() => setShowReceiveModal(true)}
+            className="flex items-center justify-center bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 transition-colors"
+          >
+            <ArrowDownLeft className="mr-2" size={20} />
+            <span>Receive</span>
+          </button>
+        </div>
+        
+        <div className="mt-6">
+          <h3 className="text-lg font-semibold mb-3">Recent Transactions</h3>
+          <TransactionHistory transactions={wallet.transactions.slice(0, 5)} />
+          
+          {wallet.transactions.length > 5 && (
+            <button
+              onClick={() => setView('history')}
+              className="mt-2 text-blue-600 hover:text-blue-800 text-sm font-medium"
+            >
+              View all transactions
+            </button>
+          )}
+        </div>
+        
+        <button
+          onClick={clearWallet}
+          className="mt-6 w-full flex items-center justify-center py-2 px-4 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 transition-colors"
+        >
+          <LogOut className="mr-2" size={16} />
+          <span>Logout</span>
+        </button>
+      </div>
+    );
+  };
+
+  const renderWalletDashboard = () => {
+    if (!wallet) return null;
+    
+    return (
+      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <div className="bg-blue-600 p-6 text-white">
+          <div className="flex justify-between items-center mb-2">
+            <h2 className="text-xl font-semibold">My Pi Wallet</h2>
+            <div className="flex items-center space-x-2">
+              {wallet.isViewOnly ? (
+                <span className="bg-yellow-500 text-white text-xs px-2 py-1 rounded">View Only</span>
+              ) : (
+                <span className="bg-green-500 text-white text-xs px-2 py-1 rounded">Full Access</span>
+              )}
+              <button 
+                onClick={handleRefreshWallet}
+                className="text-white hover:text-blue-200"
+              >
+                <RefreshCw size={18} />
+              </button>
             </div>
+          </div>
+          
+          <div className="flex items-baseline">
+            <span className="text-3xl font-bold">{formatPiAmount(wallet.balance)}</span>
+            <span className="ml-1">π</span>
+          </div>
+          
+          <div className="mt-1 text-blue-100 text-sm flex items-center">
+            <span className="truncate">{formatAddress(wallet.address)}</span>
             <button 
-              onClick={handleRefreshWallet}
-              className="text-orange-500 hover:text-orange-600"
-              title="Refresh wallet"
-              disabled={loading}
+              onClick={copyAddressToClipboard}
+              className="ml-2 text-blue-200 hover:text-white"
             >
-              <RefreshCw size={20} className={loading ? "animate-spin" : ""} />
-            </button>
-          </div>
-          
-          <div className="text-center py-6">
-            <p className="text-sm text-gray-600 mb-1">Available Balance</p>
-            <h1 className="text-4xl font-bold text-gray-800">{formatPiAmount(wallet.balance)} π</h1>
-          </div>
-          
-          <div className="flex justify-between mt-4">
-            <button
-              onClick={() => setShowSendModal(true)}
-              className="flex-1 bg-orange-500 text-white py-3 rounded-lg mr-2 flex items-center justify-center hover:bg-orange-600 transition-colors"
-            >
-              <ArrowUpRight size={18} className="mr-2" />
-              Send
-            </button>
-            <button
-              onClick={() => setShowReceiveModal(true)}
-              className="flex-1 bg-gray-100 text-gray-800 py-3 rounded-lg ml-2 flex items-center justify-center hover:bg-gray-200 transition-colors"
-            >
-              <ArrowDownLeft size={18} className="mr-2" />
-              Receive
+              <Copy size={14} />
             </button>
           </div>
         </div>
-        
-        <TransactionHistory />
-        
-        {showSendModal && <SendModal onClose={() => setShowSendModal(false)} />}
-        {showReceiveModal && <ReceiveModal onClose={() => setShowReceiveModal(false)} onShowQR={() => {
-          setShowReceiveModal(false);
-          setShowQRCodeModal(true);
-        }} />}
-        {showQRCodeModal && <QRCodeModal onClose={() => setShowQRCodeModal(false)} />}
       </div>
     );
   };
@@ -266,6 +307,16 @@ function App() {
       </header>
       
       <main className="max-w-lg mx-auto py-6">
+        {!apiKeyConfigured && !wallet && (
+          <ApiKeySetup onApiKeySet={handleApiKeySet} />
+        )}
+        
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            <p>{error}</p>
+          </div>
+        )}
+        
         {renderView()}
       </main>
       

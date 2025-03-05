@@ -22,6 +22,7 @@ export interface Wallet {
   balance: number;
   transactions: Transaction[];
   seedPhrase?: string;
+  isViewOnly?: boolean;
 }
 
 // Generate a random string to use as ID
@@ -206,102 +207,235 @@ export const importWalletFromPrivateKey = async (privateKey: string): Promise<Wa
  * This provides full access to the wallet
  */
 export const importWalletFromAddressAndSeedPhrase = async (address: string, seedPhrase: string): Promise<Wallet> => {
-  console.log('Service: Importing wallet with address and seed phrase');
+  console.log('Attempting to import wallet with address and seed phrase');
   
-  // For simplicity, we'll create a mock wallet with the provided address and seed phrase
-  const seed = mnemonicToSeedSync(seedPhrase || generateMnemonic(256));
-  const privateKey = Array.from(seed.slice(0, 32))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
+  // Validate inputs
+  if (!address || !seedPhrase) {
+    throw new Error('Both wallet address and seed phrase are required');
+  }
   
-  // Create a mock wallet
-  const wallet: Wallet = {
-    address: address || `pi${Math.random().toString(36).substring(2, 15)}`,
-    privateKey,
-    balance: 100 + Math.floor(Math.random() * 900), // Random balance between 100-1000
-    transactions: generateMockTransactions(5, address),
-    seedPhrase: seedPhrase || generateMnemonic(256)
-  };
+  try {
+    // Validate the seed phrase
+    if (!validateMnemonic(seedPhrase)) {
+      throw new Error('Invalid seed phrase format');
+    }
+    
+    // Check if it's a 24-word seed phrase
+    const words = seedPhrase.trim().split(/\s+/);
+    if (words.length !== 24) {
+      throw new Error(`Invalid seed phrase: expected 24 words, got ${words.length}`);
+    }
+    
+    // Check if the Pi Network API is configured
+    if (piNetworkApi.isApiConfigured()) {
+      try {
+        // Try to get wallet data from the Pi Network API
+        console.log('Fetching wallet data from Pi Network API');
+        const response = await piNetworkApi.getWalletByAddress(address);
+        
+        if (response.success && response.data) {
+          // Generate private key from seed phrase
+          const seed = mnemonicToSeedSync(seedPhrase);
+          const privateKey = Array.from(seed.slice(0, 32))
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('');
+          
+          // Create the wallet with real data from API
+          return {
+            address: response.data.address,
+            privateKey,
+            balance: response.data.balance,
+            transactions: response.data.transactions.map(tx => ({
+              ...tx,
+              type: tx.from === response.data.address ? 'send' : 'receive'
+            })),
+            seedPhrase
+          };
+        } else {
+          console.error('API error:', response.error);
+          throw new Error(response.error || 'Failed to fetch wallet data from Pi Network');
+        }
+      } catch (error) {
+        console.error('Error importing wallet from API:', error);
+        throw new Error('Failed to connect to Pi Network API. Please check your API key and network connection.');
+      }
+    } else {
+      throw new Error('Pi Network API is not configured. Please set your API key in the .env file.');
+    }
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error;
+    } else {
+      throw new Error('Failed to import wallet with address and seed phrase');
+    }
+  }
+};
+
+/**
+ * Import a wallet using just the wallet address
+ * This provides view-only access to the wallet
+ */
+export const importWalletWithAddress = async (address: string): Promise<Wallet> => {
+  console.log('Importing wallet with address:', address);
   
-  console.log('Service: Successfully created wallet');
-  return wallet;
+  if (!address) {
+    throw new Error('Wallet address is required');
+  }
+  
+  try {
+    // Check if the Pi Network API is configured
+    if (piNetworkApi.isApiConfigured()) {
+      // Try to get wallet data from the Pi Network API
+      const response = await piNetworkApi.getWalletByAddress(address);
+      
+      if (response.success && response.data) {
+        // Create a view-only wallet (no private key or seed phrase)
+        return {
+          address: response.data.address,
+          balance: response.data.balance,
+          transactions: response.data.transactions.map(tx => ({
+            ...tx,
+            type: tx.from === response.data.address ? 'send' : 'receive'
+          })),
+          isViewOnly: true
+        };
+      } else {
+        console.error('API error:', response.error);
+        throw new Error(response.error || 'Failed to fetch wallet data from Pi Network');
+      }
+    } else {
+      throw new Error('Pi Network API is not configured. Please set your API key in the .env file.');
+    }
+  } catch (error) {
+    console.error('Error importing wallet with address:', error);
+    if (error instanceof Error) {
+      throw error;
+    } else {
+      throw new Error('Failed to import wallet with address');
+    }
+  }
+};
+
+/**
+ * Import a wallet using just the seed phrase
+ * This provides full access to the wallet
+ */
+export const importWalletWithSeedPhrase = async (seedPhrase: string): Promise<Wallet> => {
+  console.log('Importing wallet with seed phrase');
+  
+  if (!seedPhrase) {
+    throw new Error('Seed phrase is required');
+  }
+  
+  try {
+    // Validate the seed phrase
+    if (!validateMnemonic(seedPhrase)) {
+      throw new Error('Invalid seed phrase format');
+    }
+    
+    // Check if it's a 24-word seed phrase
+    const words = seedPhrase.trim().split(/\s+/);
+    if (words.length !== 24) {
+      throw new Error(`Invalid seed phrase: expected 24 words, got ${words.length}`);
+    }
+    
+    // Check if the Pi Network API is configured
+    if (piNetworkApi.isApiConfigured()) {
+      try {
+        // Try to get wallet data from the Pi Network API using the seed phrase
+        console.log('Fetching wallet data from Pi Network API using seed phrase');
+        const response = await piNetworkApi.getWalletBySeedPhrase(seedPhrase);
+        
+        if (response.success && response.data) {
+          // Generate private key from seed phrase
+          const seed = mnemonicToSeedSync(seedPhrase);
+          const privateKey = Array.from(seed.slice(0, 32))
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('');
+          
+          // Create the wallet with real data from API
+          return {
+            address: response.data.address,
+            privateKey,
+            balance: response.data.balance,
+            transactions: response.data.transactions.map(tx => ({
+              ...tx,
+              type: tx.from === response.data.address ? 'send' : 'receive'
+            })),
+            seedPhrase
+          };
+        } else {
+          console.error('API error:', response.error);
+          throw new Error(response.error || 'Failed to fetch wallet data from Pi Network');
+        }
+      } catch (error) {
+        console.error('Error importing wallet from API:', error);
+        throw new Error('Failed to connect to Pi Network API. Please check your API key and network connection.');
+      }
+    } else {
+      throw new Error('Pi Network API is not configured. Please set your API key in the .env file.');
+    }
+  } catch (error) {
+    console.error('Error importing wallet with seed phrase:', error);
+    if (error instanceof Error) {
+      throw error;
+    } else {
+      throw new Error('Failed to import wallet with seed phrase');
+    }
+  }
 };
 
 /**
  * Send Pi from one wallet to another
  */
 export const sendPi = async (
-  fromWallet: Wallet,
+  fromAddress: string,
   toAddress: string,
-  amount: number
-): Promise<{ success: boolean; transaction: Transaction; updatedWallet: Wallet }> => {
-  // Check if wallet has enough balance
-  if (fromWallet.balance < amount) {
-    throw new Error('Insufficient balance');
+  amount: number,
+  privateKey: string
+): Promise<Transaction> => {
+  console.log('Sending Pi from', fromAddress, 'to', toAddress);
+  
+  if (!fromAddress || !toAddress || !amount || !privateKey) {
+    throw new Error('Missing required parameters for sending Pi');
   }
   
-  // Check if the Pi Network API is configured
-  if (piNetworkApi.isApiConfigured()) {
-    try {
-      // Try to send Pi using the Pi Network API
-      const response = await piNetworkApi.sendPi(
-        fromWallet.address,
-        toAddress,
-        amount,
-        fromWallet.privateKey
-      );
+  if (amount <= 0) {
+    throw new Error('Amount must be greater than 0');
+  }
+  
+  try {
+    // Check if the Pi Network API is configured
+    if (piNetworkApi.isApiConfigured()) {
+      // Send Pi using the Pi Network API
+      const response = await piNetworkApi.sendPi(fromAddress, toAddress, amount, privateKey);
       
       if (response.success && response.data) {
-        // Create a transaction from the API response
-        const transaction: Transaction = {
-          ...response.data,
+        // Return the transaction data from the API
+        return {
+          id: response.data.id,
+          from: response.data.from,
+          to: response.data.to,
+          amount: response.data.amount,
+          timestamp: response.data.timestamp,
+          status: response.data.status,
           type: 'send'
         };
-        
-        // Update the wallet
-        const updatedWallet: Wallet = {
-          ...fromWallet,
-          balance: fromWallet.balance - amount,
-          transactions: [transaction, ...fromWallet.transactions]
-        };
-        
-        return {
-          success: true,
-          transaction,
-          updatedWallet
-        };
+      } else {
+        console.error('API error:', response.error);
+        throw new Error(response.error || 'Failed to send Pi');
       }
-      
-      throw new Error(response.error || 'Failed to send Pi');
-    } catch (error) {
-      console.error('Error sending Pi:', error);
-      // Fall back to mock transaction if API call fails
+    } else {
+      throw new Error('Pi Network API is not configured. Please set your API key in the .env file.');
+    }
+  } catch (error) {
+    console.error('Error sending Pi:', error);
+    if (error instanceof Error) {
+      throw error;
+    } else {
+      throw new Error('Failed to send Pi');
     }
   }
-  
-  // Create a mock transaction if API is not configured or call failed
-  const transaction: Transaction = {
-    id: generateRandomId(),
-    from: fromWallet.address,
-    to: toAddress,
-    amount,
-    timestamp: Date.now(),
-    status: 'completed',
-    type: 'send'
-  };
-  
-  // Update the wallet
-  const updatedWallet: Wallet = {
-    ...fromWallet,
-    balance: fromWallet.balance - amount,
-    transactions: [transaction, ...fromWallet.transactions]
-  };
-  
-  return {
-    success: true,
-    transaction,
-    updatedWallet
-  };
 };
 
 /**

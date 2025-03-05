@@ -114,18 +114,44 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     }
   };
 
-  const sendPi = async (toAddress: string, amount: number): Promise<Transaction> => {
-    if (!wallet) {
-      throw new Error('No wallet available');
-    }
-
+  const sendPi = async (toAddress: string, amount: number) => {
     try {
       setLoading(true);
       setError(null);
-      const result = await piWalletService.sendPi(wallet, toAddress, amount);
-      setWallet(result.updatedWallet);
-      return result.transaction;
+      
+      if (!wallet) {
+        throw new Error('No wallet available');
+      }
+      
+      if (wallet.isViewOnly) {
+        throw new Error('Cannot send Pi from a view-only wallet');
+      }
+      
+      if (!wallet.privateKey) {
+        throw new Error('Private key is required to send Pi');
+      }
+      
+      if (wallet.balance < amount) {
+        throw new Error('Insufficient balance');
+      }
+      
+      const transaction = await piWalletService.sendPi(
+        wallet.address,
+        toAddress,
+        amount,
+        wallet.privateKey
+      );
+      
+      // Update the wallet with the new transaction and balance
+      setWallet({
+        ...wallet,
+        balance: wallet.balance - amount,
+        transactions: [transaction, ...wallet.transactions]
+      });
+      
+      return transaction;
     } catch (err) {
+      console.error('Error sending Pi:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to send Pi';
       setError(errorMessage);
       throw err;

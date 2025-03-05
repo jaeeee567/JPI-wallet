@@ -38,6 +38,16 @@ const SendModal: React.FC<SendModalProps> = ({ isOpen, onClose }) => {
       return;
     }
 
+    if (wallet.isViewOnly) {
+      setError('Cannot send Pi from a view-only wallet. Import with full access to send Pi.');
+      return;
+    }
+
+    if (!wallet.privateKey) {
+      setError('Private key is required to send Pi. Import with full access to send Pi.');
+      return;
+    }
+
     if (amountValue > wallet.balance) {
       setError('Insufficient balance');
       return;
@@ -125,6 +135,12 @@ const SendModal: React.FC<SendModalProps> = ({ isOpen, onClose }) => {
             {error && (
               <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-200">
                 {error}
+              </div>
+            )}
+
+            {wallet && wallet.isViewOnly && (
+              <div className="mb-4 p-3 bg-yellow-500/20 border border-yellow-500/30 rounded-lg text-yellow-200">
+                Warning: This wallet is view-only and cannot be used to send Pi. Import with full access to send Pi.
               </div>
             )}
 
