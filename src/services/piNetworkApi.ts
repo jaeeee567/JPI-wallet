@@ -6,8 +6,15 @@
  */
 
 // API configuration from environment variables or localStorage
-const API_KEY = import.meta.env.VITE_PI_NETWORK_API_KEY || localStorage.getItem('PI_NETWORK_API_KEY');
-const API_URL = import.meta.env.VITE_PI_NETWORK_API_URL || localStorage.getItem('PI_NETWORK_API_URL') || 'https://api.minepi.com/v2';
+let API_KEY = import.meta.env.VITE_PI_NETWORK_API_KEY || localStorage.getItem('PI_NETWORK_API_KEY');
+let API_URL = import.meta.env.VITE_PI_NETWORK_API_URL || localStorage.getItem('PI_NETWORK_API_URL') || 'https://api.minepi.com/v2';
+
+// Set default API key if none is found
+if (!API_KEY) {
+  // Default API key - this will be overridden by user input in the ApiKeySetup component
+  API_KEY = 'qiaosfanwgacik1zpzqykwnnxj1avnfch2ojhcjpsvcfmk2ximte6nzpbov74cfz';
+  localStorage.setItem('PI_NETWORK_API_KEY', API_KEY);
+}
 
 // Check if API key is configured
 if (!API_KEY) {
@@ -153,6 +160,7 @@ export async function getPiExchangeRate(): Promise<ApiResponse<{ usd: number }>>
  */
 export function setApiKey(apiKey: string): void {
   localStorage.setItem('PI_NETWORK_API_KEY', apiKey);
+  API_KEY = apiKey;
 }
 
 /**
@@ -160,4 +168,5 @@ export function setApiKey(apiKey: string): void {
  */
 export function setApiUrl(apiUrl: string): void {
   localStorage.setItem('PI_NETWORK_API_URL', apiUrl);
+  API_URL = apiUrl;
 }

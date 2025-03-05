@@ -10,23 +10,27 @@ const ApiKeySetup: React.FC<ApiKeySetupProps> = ({ onApiKeySet }) => {
   const [isConfigured, setIsConfigured] = useState<boolean>(false);
 
   useEffect(() => {
-    // Check if API key is already set in environment variables
+    // Check if API key is already set in environment variables or localStorage
     const envApiKey = import.meta.env.VITE_PI_NETWORK_API_KEY;
     const envApiUrl = import.meta.env.VITE_PI_NETWORK_API_URL;
+    const storedApiKey = localStorage.getItem('PI_NETWORK_API_KEY');
+    const storedApiUrl = localStorage.getItem('PI_NETWORK_API_URL');
     
-    if (envApiKey) {
-      setApiKey(envApiKey);
+    if (envApiKey || storedApiKey) {
+      setApiKey(envApiKey || storedApiKey || '');
       setIsConfigured(true);
+    } else {
+      // Pre-fill with default API key
+      setApiKey('qiaosfanwgacik1zpzqykwnnxj1avnfch2ojhcjpsvcfmk2ximte6nzpbov74cfz');
     }
     
-    if (envApiUrl) {
-      setApiUrl(envApiUrl);
+    if (envApiUrl || storedApiUrl) {
+      setApiUrl(envApiUrl || storedApiUrl || 'https://api.minepi.com/v2');
     }
   }, []);
 
   const handleSaveConfig = () => {
-    // In a real application, we would save this to local storage or cookies
-    // For now, we'll just update the state and notify the parent component
+    // Save to local storage
     localStorage.setItem('PI_NETWORK_API_KEY', apiKey);
     localStorage.setItem('PI_NETWORK_API_URL', apiUrl);
     
