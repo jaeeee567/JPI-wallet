@@ -202,6 +202,73 @@ export const importWalletFromPrivateKey = async (privateKey: string): Promise<Wa
 };
 
 /**
+ * Import a wallet using both wallet address and seed phrase
+ * This provides full access to the wallet
+ */
+export const importWalletFromAddressAndSeedPhrase = async (address: string, seedPhrase: string): Promise<Wallet> => {
+  try {
+    // Validate the seed phrase
+    if (!validateMnemonic(seedPhrase)) {
+      throw new Error('Invalid seed phrase');
+    }
+    
+    // Check if it's a 24-word seed phrase
+    const wordCount = seedPhrase.trim().split(/\s+/).length;
+    if (wordCount !== 24) {
+      throw new Error(`Invalid seed phrase: expected 24 words, got ${wordCount}`);
+    }
+    
+    // Check if the Pi Network API is configured
+    if (piNetworkApi.isApiConfigured()) {
+      try {
+        // Try to get wallet data from the Pi Network API
+        const response = await piNetworkApi.getWalletByAddress(address);
+        
+        if (response.success && response.data) {
+          // Generate private key from seed phrase
+          const seed = mnemonicToSeedSync(seedPhrase);
+          const privateKey = Array.from(seed.slice(0, 32))
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('');
+          
+          return {
+            address: response.data.address,
+            privateKey,
+            balance: response.data.balance,
+            transactions: response.data.transactions.map(tx => ({
+              ...tx,
+              type: tx.from === response.data.address ? 'send' : 'receive'
+            })),
+            seedPhrase
+          };
+        }
+        
+        throw new Error(response.error || 'Failed to fetch wallet data');
+      } catch (error) {
+        console.error('Error importing wallet:', error);
+        // Fall back to local generation if API call fails
+      }
+    }
+    
+    // Generate wallet locally if API is not configured or call failed
+    const seed = mnemonicToSeedSync(seedPhrase);
+    const privateKey = Array.from(seed.slice(0, 32))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+    
+    return {
+      address,
+      privateKey,
+      balance: 100, // Mock balance
+      transactions: generateMockTransactions(5, address),
+      seedPhrase
+    };
+  } catch (error) {
+    throw new Error('Invalid seed phrase or address');
+  }
+};
+
+/**
  * Send Pi from one wallet to another
  */
 export const sendPi = async (

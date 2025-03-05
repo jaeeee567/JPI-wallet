@@ -16,6 +16,7 @@ function App() {
     createNewWallet, 
     importWalletWithAddress,
     importWalletWithSeedPhrase,
+    importWalletWithAddressAndSeedPhrase,
     refreshWallet,
     clearWallet,
     copyAddressToClipboard,
@@ -29,7 +30,7 @@ function App() {
   const [showQRCodeModal, setShowQRCodeModal] = useState(false);
   const [addressInput, setAddressInput] = useState('');
   const [seedPhraseInput, setSeedPhraseInput] = useState('');
-  const [importType, setImportType] = useState<'address' | 'seedPhrase'>('address');
+  const [importType, setImportType] = useState<'address' | 'seedPhrase' | 'combined'>('combined');
 
   // Handle wallet creation or import
   const handleCreateWallet = async () => {
@@ -41,6 +42,8 @@ function App() {
       await importWalletWithAddress(addressInput);
     } else if (importType === 'seedPhrase' && seedPhraseInput) {
       await importWalletWithSeedPhrase(seedPhraseInput);
+    } else if (importType === 'combined' && addressInput && seedPhraseInput) {
+      await importWalletWithAddressAndSeedPhrase(addressInput, seedPhraseInput);
     }
   };
 
@@ -155,20 +158,26 @@ function App() {
             <div className="mb-4">
               <div className="flex mb-4">
                 <button
+                  onClick={() => setImportType('combined')}
+                  className={`flex-1 py-2 ${importType === 'combined' ? 'border-b-2 border-orange-500 text-orange-500' : 'text-gray-500'}`}
+                >
+                  Full Access
+                </button>
+                <button
                   onClick={() => setImportType('address')}
                   className={`flex-1 py-2 ${importType === 'address' ? 'border-b-2 border-orange-500 text-orange-500' : 'text-gray-500'}`}
                 >
-                  Address
+                  View Only
                 </button>
                 <button
                   onClick={() => setImportType('seedPhrase')}
                   className={`flex-1 py-2 ${importType === 'seedPhrase' ? 'border-b-2 border-orange-500 text-orange-500' : 'text-gray-500'}`}
                 >
-                  24-Word Seed Phrase
+                  Seed Only
                 </button>
               </div>
               
-              {importType === 'address' && (
+              {(importType === 'address' || importType === 'combined') && (
                 <input
                   type="text"
                   placeholder="Enter wallet address"
@@ -178,7 +187,7 @@ function App() {
                 />
               )}
               
-              {importType === 'seedPhrase' && (
+              {(importType === 'seedPhrase' || importType === 'combined') && (
                 <textarea
                   placeholder="Enter 24-word seed phrase (separated by spaces)"
                   className="w-full p-3 border border-gray-300 rounded-lg mb-4 h-24"
@@ -192,7 +201,8 @@ function App() {
                 className="w-full bg-gray-100 text-gray-800 py-3 rounded-lg flex items-center justify-center hover:bg-gray-200 transition-colors"
                 disabled={loading || 
                   (importType === 'address' && !addressInput) || 
-                  (importType === 'seedPhrase' && !seedPhraseInput)
+                  (importType === 'seedPhrase' && !seedPhraseInput) ||
+                  (importType === 'combined' && (!addressInput || !seedPhraseInput))
                 }
               >
                 {loading ? 'Importing...' : 'Import Wallet'}

@@ -9,6 +9,7 @@ interface WalletContextType {
   createNewWallet: () => Promise<void>;
   importWalletWithAddress: (address: string) => Promise<void>;
   importWalletWithSeedPhrase: (seedPhrase: string) => Promise<void>;
+  importWalletWithAddressAndSeedPhrase: (address: string, seedPhrase: string) => Promise<void>;
   sendPi: (toAddress: string, amount: number) => Promise<Transaction>;
   refreshWallet: () => Promise<void>;
   clearWallet: () => void;
@@ -92,6 +93,20 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     }
   };
 
+  const importWalletWithAddressAndSeedPhrase = async (address: string, seedPhrase: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const importedWallet = await piWalletService.importWalletFromAddressAndSeedPhrase(address, seedPhrase);
+      setWallet(importedWallet);
+    } catch (err) {
+      setError('Failed to import wallet with address and seed phrase');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const sendPi = async (toAddress: string, amount: number): Promise<Transaction> => {
     if (!wallet) {
       throw new Error('No wallet available');
@@ -158,6 +173,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     createNewWallet,
     importWalletWithAddress,
     importWalletWithSeedPhrase,
+    importWalletWithAddressAndSeedPhrase,
     sendPi,
     refreshWallet,
     clearWallet,
