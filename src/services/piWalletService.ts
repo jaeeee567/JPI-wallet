@@ -2,16 +2,16 @@
 // This is a mock implementation for demonstration purposes
 
 import { generateMnemonic, mnemonicToSeedSync } from 'bip39';
-import { randomBytes, createHash } from 'crypto';
 
 // Interface for Transaction
 export interface Transaction {
   id: string;
-  type: 'send' | 'receive';
+  from: string;
+  to: string;
   amount: number;
   timestamp: number;
-  address: string;
   status: 'pending' | 'completed' | 'failed';
+  type: 'send' | 'receive';
 }
 
 // Interface for Wallet
@@ -20,143 +20,213 @@ export interface Wallet {
   privateKey: string;
   balance: number;
   transactions: Transaction[];
+  seedPhrase?: string;
 }
 
-// Generate a random Pi address
-export function generateAddress(): string {
-  const hash = createHash('sha256')
-    .update(randomBytes(32))
-    .digest('hex');
-  return `pi${hash.substring(0, 34)}`;
-}
+// Generate a random string to use as ID
+const generateRandomId = (): string => {
+  return Math.random().toString(36).substring(2, 15) + 
+         Math.random().toString(36).substring(2, 15);
+};
 
-// Generate a random private key
-export function generatePrivateKey(): string {
-  return randomBytes(32).toString('hex');
-}
+// Generate a random hex string of specified length
+const generateRandomHex = (length: number): string => {
+  const characters = '0123456789abcdef';
+  let result = '';
+  const randomValues = new Uint8Array(length);
+  window.crypto.getRandomValues(randomValues);
+  
+  for (let i = 0; i < length; i++) {
+    result += characters[randomValues[i] % characters.length];
+  }
+  
+  return result;
+};
 
-// Create a new wallet
-export function createWallet(): Wallet {
-  const privateKey = generatePrivateKey();
-  const address = generateAddress();
+// Simple hash function for browser environment
+const sha256 = async (message: string): Promise<string> => {
+  const msgBuffer = new TextEncoder().encode(message);
+  const hashBuffer = await window.crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+};
+
+/**
+ * Create a new wallet with a randomly generated private key and address
+ */
+export const createWallet = async (): Promise<Wallet> => {
+  const seedPhrase = generateMnemonic();
+  const seed = mnemonicToSeedSync(seedPhrase);
+  const privateKey = generateRandomHex(64);
+  const addressInput = privateKey + Date.now().toString();
+  const address = await sha256(addressInput);
   
   return {
-    address,
+    address: address.substring(0, 40),
     privateKey,
     balance: 0,
-    transactions: []
+    transactions: [],
+    seedPhrase
   };
-}
+};
 
-// Generate a seed phrase (mnemonic)
-export function generateSeedPhrase(): string {
-  return generateMnemonic();
-}
-
-// Import wallet from private key
-export function importFromPrivateKey(privateKey: string): Wallet {
-  // In a real implementation, this would derive the address from the private key
-  // For this mock, we'll generate a deterministic address based on the private key
-  const hash = createHash('sha256')
-    .update(privateKey)
-    .digest('hex');
-  const address = `pi${hash.substring(0, 34)}`;
+/**
+ * Import a wallet using a private key
+ */
+export const importWalletFromPrivateKey = async (privateKey: string): Promise<Wallet> => {
+  const addressInput = privateKey + '1'; // Adding a constant suffix for deterministic address generation
+  const address = await sha256(addressInput);
   
   return {
-    address,
+    address: address.substring(0, 40),
     privateKey,
-    balance: Math.floor(Math.random() * 10000) / 100, // Random balance for demo
-    transactions: generateMockTransactions(address, 5)
+    balance: 100, // Mock balance
+    transactions: generateMockTransactions(5, address.substring(0, 40)),
   };
-}
+};
 
-// Import wallet from seed phrase
-export function importFromSeedPhrase(seedPhrase: string): Wallet {
-  // In a real implementation, this would derive the private key and address from the seed phrase
-  // For this mock, we'll generate a deterministic private key and address
-  const seed = mnemonicToSeedSync(seedPhrase).toString('hex');
-  const privateKey = seed.substring(0, 64);
-  const hash = createHash('sha256')
-    .update(privateKey)
-    .digest('hex');
-  const address = `pi${hash.substring(0, 34)}`;
+/**
+ * Import a wallet using a seed phrase
+ */
+export const importWalletFromSeedPhrase = async (seedPhrase: string): Promise<Wallet> => {
+  try {
+    const seed = mnemonicToSeedSync(seedPhrase);
+    const privateKey = Array.from(seed.slice(0, 32))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+    
+    const addressInput = privateKey + '1'; // Adding a constant suffix for deterministic address generation
+    const address = await sha256(addressInput);
+    
+    return {
+      address: address.substring(0, 40),
+      privateKey,
+      balance: 100, // Mock balance
+      transactions: generateMockTransactions(5, address.substring(0, 40)),
+      seedPhrase
+    };
+  } catch (error) {
+    throw new Error('Invalid seed phrase');
+  }
+};
+
+/**
+ * Send Pi from one wallet to another
+ */
+export const sendPi = async (
+  fromWallet: Wallet,
+  toAddress: string,
+  amount: number
+): Promise<{ success: boolean; transaction: Transaction; updatedWallet: Wallet }> => {
+  // Check if wallet has enough balance
+  if (fromWallet.balance < amount) {
+    throw new Error('Insufficient balance');
+  }
+  
+  // Create a new transaction
+  const transaction: Transaction = {
+    id: generateRandomId(),
+    from: fromWallet.address,
+    to: toAddress,
+    amount,
+    timestamp: Date.now(),
+    status: 'completed',
+    type: 'send'
+  };
+  
+  // Update the wallet
+  const updatedWallet: Wallet = {
+    ...fromWallet,
+    balance: fromWallet.balance - amount,
+    transactions: [transaction, ...fromWallet.transactions]
+  };
   
   return {
-    address,
-    privateKey,
-    balance: Math.floor(Math.random() * 10000) / 100, // Random balance for demo
-    transactions: generateMockTransactions(address, 5)
+    success: true,
+    transaction,
+    updatedWallet
   };
-}
+};
 
-// Send Pi to another address
-export function sendPi(wallet: Wallet, toAddress: string, amount: number): Promise<Transaction> {
-  return new Promise((resolve, reject) => {
-    if (amount <= 0) {
-      reject(new Error('Amount must be greater than 0'));
-      return;
-    }
-    
-    if (amount > wallet.balance) {
-      reject(new Error('Insufficient balance'));
-      return;
-    }
-    
-    // Simulate network delay
-    setTimeout(() => {
-      const transaction: Transaction = {
-        id: randomBytes(16).toString('hex'),
-        type: 'send',
-        amount,
-        timestamp: Date.now(),
-        address: toAddress,
-        status: 'completed'
-      };
-      
-      // Update wallet
-      wallet.balance -= amount;
-      wallet.transactions.unshift(transaction);
-      
-      resolve(transaction);
-    }, 1000);
-  });
-}
-
-// Generate mock transactions for demo
-export function generateMockTransactions(address: string, count: number): Transaction[] {
+/**
+ * Generate mock transactions for testing
+ */
+export const generateMockTransactions = (count: number, address: string): Transaction[] => {
   const transactions: Transaction[] = [];
   
   for (let i = 0; i < count; i++) {
     const isSend = Math.random() > 0.5;
-    const transaction: Transaction = {
-      id: randomBytes(16).toString('hex'),
-      type: isSend ? 'send' : 'receive',
-      amount: Math.floor(Math.random() * 10000) / 100,
-      timestamp: Date.now() - Math.floor(Math.random() * 30 * 24 * 60 * 60 * 1000), // Random time in the last 30 days
-      address: isSend ? generateAddress() : address,
-      status: 'completed'
-    };
     
-    transactions.push(transaction);
+    transactions.push({
+      id: generateRandomId(),
+      from: isSend ? address : generateRandomHex(40),
+      to: isSend ? generateRandomHex(40) : address,
+      amount: Math.floor(Math.random() * 100) + 1,
+      timestamp: Date.now() - Math.floor(Math.random() * 10000000),
+      status: 'completed',
+      type: isSend ? 'send' : 'receive'
+    });
   }
   
   // Sort by timestamp (newest first)
   return transactions.sort((a, b) => b.timestamp - a.timestamp);
-}
+};
 
-// Format Pi amount with 2 decimal places
-export function formatPiAmount(amount: number): string {
+/**
+ * Get a mock transaction by ID
+ */
+export const getTransactionById = (transactions: Transaction[], id: string): Transaction | undefined => {
+  return transactions.find(tx => tx.id === id);
+};
+
+/**
+ * Get transaction history for a wallet
+ */
+export const getTransactionHistory = (wallet: Wallet): Transaction[] => {
+  return wallet.transactions;
+};
+
+/**
+ * Refresh wallet data (mock implementation)
+ */
+export const refreshWallet = async (wallet: Wallet): Promise<Wallet> => {
+  // In a real implementation, this would fetch the latest balance and transactions from the blockchain
+  const newTransactions = generateMockTransactions(2, wallet.address);
+  
+  // Add new transactions to the wallet
+  const updatedTransactions = [...newTransactions, ...wallet.transactions];
+  
+  // Calculate new balance based on transactions
+  const receivedAmount = newTransactions
+    .filter(tx => tx.type === 'receive')
+    .reduce((sum, tx) => sum + tx.amount, 0);
+  
+  return {
+    ...wallet,
+    balance: wallet.balance + receivedAmount,
+    transactions: updatedTransactions
+  };
+};
+
+/**
+ * Format Pi amount with 2 decimal places
+ */
+export const formatPiAmount = (amount: number): string => {
   return amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
+};
 
-// Format wallet address for display (truncate middle)
-export function formatAddress(address: string): string {
+/**
+ * Format wallet address for display (truncate middle)
+ */
+export const formatAddress = (address: string): string => {
   if (address.length <= 12) return address;
   return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
-}
+};
 
-// Format timestamp to relative time (e.g., "2 hours ago")
-export function formatTimestamp(timestamp: number): string {
+/**
+ * Format timestamp to relative time (e.g., "2 hours ago")
+ */
+export const formatTimestamp = (timestamp: number): string => {
   const now = Date.now();
   const diff = now - timestamp;
   
@@ -169,4 +239,4 @@ export function formatTimestamp(timestamp: number): string {
   if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
   if (minutes > 0) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
   return `${seconds} second${seconds !== 1 ? 's' : ''} ago`;
-}
+};

@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { Wallet, Send, QrCode, Settings, History, ArrowDownToLine, Copy, ExternalLink, Import, X, Eye, EyeOff, Check } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { useWallet } from './services/WalletContext';
 import SendModal from './components/SendModal';
 import ReceiveModal from './components/ReceiveModal';
@@ -7,259 +6,248 @@ import QRCodeModal from './components/QRCodeModal';
 import TransactionHistory from './components/TransactionHistory';
 import TransactionHistoryView from './components/TransactionHistoryView';
 import SettingsView from './components/SettingsView';
+import { ArrowUpRight, ArrowDownLeft, QrCode, Settings, History, Copy, LogOut, RefreshCw } from 'lucide-react';
 
 function App() {
-  const { wallet, createNewWallet, copyAddressToClipboard, formatPiAmount, formatAddress } = useWallet();
-  const [showImportModal, setShowImportModal] = useState(false);
-  const [importType, setImportType] = useState<'privateKey' | 'seedPhrase'>('privateKey');
-  const [importValue, setImportValue] = useState('');
-  const [showSecret, setShowSecret] = useState(false);
+  const { 
+    wallet, 
+    loading, 
+    error, 
+    createNewWallet, 
+    importWalletWithPrivateKey, 
+    importWalletWithSeedPhrase,
+    refreshWallet,
+    clearWallet,
+    copyAddressToClipboard,
+    formatAddress,
+    formatPiAmount
+  } = useWallet();
+
+  const [view, setView] = useState<'wallet' | 'history' | 'settings'>('wallet');
   const [showSendModal, setShowSendModal] = useState(false);
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [showQRCodeModal, setShowQRCodeModal] = useState(false);
-  const [currentView, setCurrentView] = useState<'wallet' | 'history' | 'settings'>('wallet');
-  const [copied, setCopied] = useState(false);
+  const [privateKeyInput, setPrivateKeyInput] = useState('');
+  const [seedPhraseInput, setSeedPhraseInput] = useState('');
+  const [importType, setImportType] = useState<'privateKey' | 'seedPhrase'>('privateKey');
 
-  // Create a wallet if none exists
-  useEffect(() => {
+  // Handle wallet creation or import
+  const handleCreateWallet = async () => {
+    await createNewWallet();
+  };
+
+  const handleImportWallet = async () => {
+    if (importType === 'privateKey' && privateKeyInput) {
+      await importWalletWithPrivateKey(privateKeyInput);
+    } else if (importType === 'seedPhrase' && seedPhraseInput) {
+      await importWalletWithSeedPhrase(seedPhraseInput);
+    }
+  };
+
+  const handleRefreshWallet = async () => {
+    await refreshWallet();
+  };
+
+  const handleLogout = () => {
+    clearWallet();
+  };
+
+  // Render the appropriate view
+  const renderView = () => {
+    switch (view) {
+      case 'history':
+        return <TransactionHistoryView />;
+      case 'settings':
+        return <SettingsView onLogout={handleLogout} />;
+      default:
+        return renderWalletView();
+    }
+  };
+
+  // Render the wallet view (default)
+  const renderWalletView = () => {
     if (!wallet) {
-      createNewWallet();
+      return renderWalletCreation();
     }
-  }, [wallet, createNewWallet]);
 
-  const handleCopyAddress = async () => {
-    try {
-      await copyAddressToClipboard();
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy address', err);
-    }
-  };
-
-  const handleImport = async (e: React.FormEvent) => {
-    e.preventDefault();
-    // This is now handled by the wallet context
-    console.log('Importing wallet with:', importType, importValue);
-    setShowImportModal(false);
-    setImportValue('');
-  };
-
-  // Render different views based on navigation
-  if (currentView === 'history') {
-    return <TransactionHistoryView onBack={() => setCurrentView('wallet')} />;
-  }
-
-  if (currentView === 'settings') {
-    return <SettingsView onBack={() => setCurrentView('wallet')} />;
-  }
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-orange-700">
-      {/* Header */}
-      <header className="p-6 flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <Wallet className="text-orange-400 w-8 h-8" />
-          <h1 className="text-2xl font-bold text-white">JPI Wallet</h1>
-        </div>
-        <button onClick={() => setCurrentView('settings')}>
-          <Settings className="text-white w-6 h-6" />
-        </button>
-      </header>
-
-      {/* Main Balance Card */}
-      <div className="mx-4 p-6 bg-white/10 backdrop-blur-lg rounded-2xl shadow-xl">
-        <p className="text-center text-gray-300">Total Balance</p>
-        <p className="text-4xl font-bold text-center text-white mt-2">
-          {wallet ? formatPiAmount(wallet.balance) : '0.00'} JPI
-        </p>
-        
-        <div className="flex justify-center gap-4 mt-6">
-          <button 
-            onClick={() => setShowSendModal(true)}
-            className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-xl"
-          >
-            <Send className="w-5 h-5" />
-            Send
-          </button>
-          <button 
-            onClick={() => setShowReceiveModal(true)}
-            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl"
-          >
-            <ArrowDownToLine className="w-5 h-5" />
-            Receive
-          </button>
-          <button 
-            onClick={() => setShowImportModal(true)}
-            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl"
-          >
-            <Import className="w-5 h-5" />
-            Import
-          </button>
-        </div>
-      </div>
-
-      {/* Address Card */}
-      <div className="mx-4 mt-6 p-4 bg-white/5 backdrop-blur-lg rounded-xl">
-        <div className="flex justify-between items-center">
-          <p className="text-gray-300">Wallet Address</p>
-          <div className="flex gap-2">
+    return (
+      <div className="p-4">
+        <div className="bg-white rounded-lg shadow-md p-6 mb-4">
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <h2 className="text-xl font-bold text-gray-800">My Wallet</h2>
+              <div className="flex items-center mt-1">
+                <p className="text-sm text-gray-600">{formatAddress(wallet.address)}</p>
+                <button 
+                  onClick={copyAddressToClipboard} 
+                  className="ml-2 text-orange-500 hover:text-orange-600"
+                  title="Copy address"
+                >
+                  <Copy size={14} />
+                </button>
+              </div>
+            </div>
             <button 
-              onClick={handleCopyAddress}
-              className="p-2 hover:bg-white/10 rounded-lg"
+              onClick={handleRefreshWallet}
+              className="text-orange-500 hover:text-orange-600"
+              title="Refresh wallet"
+              disabled={loading}
             >
-              {copied ? (
-                <Check className="w-4 h-4 text-green-400" />
-              ) : (
-                <Copy className="w-4 h-4 text-gray-300" />
-              )}
+              <RefreshCw size={20} className={loading ? "animate-spin" : ""} />
             </button>
-            <button 
-              onClick={() => setShowQRCodeModal(true)}
-              className="p-2 hover:bg-white/10 rounded-lg"
+          </div>
+          
+          <div className="text-center py-6">
+            <p className="text-sm text-gray-600 mb-1">Available Balance</p>
+            <h1 className="text-4xl font-bold text-gray-800">{formatPiAmount(wallet.balance)} π</h1>
+          </div>
+          
+          <div className="flex justify-between mt-4">
+            <button
+              onClick={() => setShowSendModal(true)}
+              className="flex-1 bg-orange-500 text-white py-3 rounded-lg mr-2 flex items-center justify-center hover:bg-orange-600 transition-colors"
             >
-              <QrCode className="w-4 h-4 text-gray-300" />
+              <ArrowUpRight size={18} className="mr-2" />
+              Send
+            </button>
+            <button
+              onClick={() => setShowReceiveModal(true)}
+              className="flex-1 bg-gray-100 text-gray-800 py-3 rounded-lg ml-2 flex items-center justify-center hover:bg-gray-200 transition-colors"
+            >
+              <ArrowDownLeft size={18} className="mr-2" />
+              Receive
             </button>
           </div>
         </div>
-        <p className="text-white font-mono mt-1">
-          {wallet ? formatAddress(wallet.address) : '0x0000...0000'}
-        </p>
-      </div>
-
-      {/* Recent Transactions */}
-      <div className="mx-4 mt-6">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-white text-lg font-semibold">Recent Transactions</h2>
-          <button 
-            onClick={() => setCurrentView('history')}
-            className="text-orange-400 flex items-center gap-1"
-          >
-            View All <ExternalLink className="w-4 h-4" />
-          </button>
-        </div>
         
-        <TransactionHistory limit={3} />
+        <TransactionHistory />
+        
+        {showSendModal && <SendModal onClose={() => setShowSendModal(false)} />}
+        {showReceiveModal && <ReceiveModal onClose={() => setShowReceiveModal(false)} onShowQR={() => {
+          setShowReceiveModal(false);
+          setShowQRCodeModal(true);
+        }} />}
+        {showQRCodeModal && <QRCodeModal onClose={() => setShowQRCodeModal(false)} />}
       </div>
+    );
+  };
 
-      {/* Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/10 backdrop-blur-lg p-4">
-        <div className="flex justify-around">
-          <button 
-            onClick={() => setCurrentView('wallet')}
-            className={`flex flex-col items-center ${
-              currentView === 'wallet' ? 'text-orange-400' : 'text-white opacity-80 hover:opacity-100'
-            }`}
-          >
-            <Wallet className="w-6 h-6" />
-            <span className="text-xs mt-1">Wallet</span>
-          </button>
-          <button 
-            onClick={() => setCurrentView('history')}
-            className={`flex flex-col items-center ${
-              currentView === 'history' ? 'text-orange-400' : 'text-white opacity-80 hover:opacity-100'
-            }`}
-          >
-            <History className="w-6 h-6" />
-            <span className="text-xs mt-1">History</span>
-          </button>
-          <button 
-            onClick={() => setCurrentView('settings')}
-            className={`flex flex-col items-center ${
-              currentView === 'settings' ? 'text-orange-400' : 'text-white opacity-80 hover:opacity-100'
-            }`}
-          >
-            <Settings className="w-6 h-6" />
-            <span className="text-xs mt-1">Settings</span>
-          </button>
-        </div>
-      </nav>
-
-      {/* Import Wallet Modal */}
-      {showImportModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-white">Import Wallet</h2>
-              <button 
-                onClick={() => setShowImportModal(false)}
-                className="text-gray-300 hover:text-white"
-              >
-                <X className="w-6 h-6" />
-              </button>
+  // Render wallet creation UI
+  const renderWalletCreation = () => {
+    return (
+      <div className="p-4">
+        <div className="bg-white rounded-lg shadow-md p-6 mb-4">
+          <h2 className="text-xl font-bold text-gray-800 mb-4">Welcome to JPI Wallet</h2>
+          
+          <div className="mb-6">
+            <button
+              onClick={handleCreateWallet}
+              className="w-full bg-orange-500 text-white py-3 rounded-lg flex items-center justify-center hover:bg-orange-600 transition-colors mb-4"
+              disabled={loading}
+            >
+              {loading ? 'Creating...' : 'Create New Wallet'}
+            </button>
+            
+            <div className="text-center my-4">
+              <span className="text-gray-500">or</span>
             </div>
-
-            <form onSubmit={handleImport}>
-              <div className="flex gap-4 mb-6">
+            
+            <div className="mb-4">
+              <div className="flex mb-4">
                 <button
-                  type="button"
                   onClick={() => setImportType('privateKey')}
-                  className={`flex-1 py-2 px-4 rounded-lg ${
-                    importType === 'privateKey' 
-                      ? 'bg-orange-500 text-white' 
-                      : 'bg-white/5 text-gray-300'
-                  }`}
+                  className={`flex-1 py-2 ${importType === 'privateKey' ? 'border-b-2 border-orange-500 text-orange-500' : 'text-gray-500'}`}
                 >
                   Private Key
                 </button>
                 <button
-                  type="button"
                   onClick={() => setImportType('seedPhrase')}
-                  className={`flex-1 py-2 px-4 rounded-lg ${
-                    importType === 'seedPhrase' 
-                      ? 'bg-orange-500 text-white' 
-                      : 'bg-white/5 text-gray-300'
-                  }`}
+                  className={`flex-1 py-2 ${importType === 'seedPhrase' ? 'border-b-2 border-orange-500 text-orange-500' : 'text-gray-500'}`}
                 >
                   Seed Phrase
                 </button>
               </div>
-
-              <div className="mb-6">
-                <label className="block text-gray-300 mb-2">
-                  {importType === 'privateKey' ? 'Enter Private Key' : 'Enter Seed Phrase'}
-                </label>
-                <div className="relative">
-                  <textarea
-                    value={importValue}
-                    onChange={(e) => setImportValue(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    placeholder={importType === 'privateKey' 
-                      ? 'Enter your private key'
-                      : 'Enter your 12 or 24-word seed phrase'
-                    }
-                    rows={3}
-                    style={{ paddingRight: '2.5rem' }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowSecret(!showSecret)}
-                    className="absolute right-3 top-3 text-gray-300 hover:text-white"
-                  >
-                    {showSecret ? (
-                      <EyeOff className="w-5 h-5" />
-                    ) : (
-                      <Eye className="w-5 h-5" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
+              
+              {importType === 'privateKey' ? (
+                <input
+                  type="text"
+                  placeholder="Enter private key"
+                  className="w-full p-3 border border-gray-300 rounded-lg mb-4"
+                  value={privateKeyInput}
+                  onChange={(e) => setPrivateKeyInput(e.target.value)}
+                />
+              ) : (
+                <textarea
+                  placeholder="Enter seed phrase (12 words separated by spaces)"
+                  className="w-full p-3 border border-gray-300 rounded-lg mb-4 h-24"
+                  value={seedPhraseInput}
+                  onChange={(e) => setSeedPhraseInput(e.target.value)}
+                />
+              )}
+              
               <button
-                type="submit"
-                className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-xl font-semibold"
+                onClick={handleImportWallet}
+                className="w-full bg-gray-100 text-gray-800 py-3 rounded-lg flex items-center justify-center hover:bg-gray-200 transition-colors"
+                disabled={loading || (!privateKeyInput && !seedPhraseInput)}
               >
-                Import Wallet
+                {loading ? 'Importing...' : 'Import Wallet'}
               </button>
-            </form>
+            </div>
           </div>
+          
+          {error && (
+            <div className="bg-red-100 text-red-700 p-3 rounded-lg mt-4">
+              {error}
+            </div>
+          )}
         </div>
-      )}
+      </div>
+    );
+  };
 
-      {/* Modals */}
-      <SendModal isOpen={showSendModal} onClose={() => setShowSendModal(false)} />
-      <ReceiveModal isOpen={showReceiveModal} onClose={() => setShowReceiveModal(false)} />
-      <QRCodeModal isOpen={showQRCodeModal} onClose={() => setShowQRCodeModal(false)} />
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+          <h1 className="text-xl font-bold text-orange-500">JPI Wallet</h1>
+          
+          {wallet && (
+            <div className="flex space-x-4">
+              <button
+                onClick={() => setView('wallet')}
+                className={`flex items-center ${view === 'wallet' ? 'text-orange-500' : 'text-gray-600 hover:text-gray-900'}`}
+              >
+                <QrCode size={20} className="mr-1" />
+                <span className="hidden sm:inline">Wallet</span>
+              </button>
+              <button
+                onClick={() => setView('history')}
+                className={`flex items-center ${view === 'history' ? 'text-orange-500' : 'text-gray-600 hover:text-gray-900'}`}
+              >
+                <History size={20} className="mr-1" />
+                <span className="hidden sm:inline">History</span>
+              </button>
+              <button
+                onClick={() => setView('settings')}
+                className={`flex items-center ${view === 'settings' ? 'text-orange-500' : 'text-gray-600 hover:text-gray-900'}`}
+              >
+                <Settings size={20} className="mr-1" />
+                <span className="hidden sm:inline">Settings</span>
+              </button>
+            </div>
+          )}
+        </div>
+      </header>
+      
+      <main className="max-w-lg mx-auto py-6">
+        {renderView()}
+      </main>
+      
+      <footer className="bg-white border-t border-gray-200 py-4">
+        <div className="max-w-7xl mx-auto px-4 text-center text-gray-500 text-sm">
+          &copy; {new Date().getFullYear()} JPI Wallet. All rights reserved.
+        </div>
+      </footer>
     </div>
   );
 }

@@ -1,20 +1,22 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import * as PiWalletService from './piWalletService';
+import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
+import * as piWalletService from './piWalletService';
 import { Wallet, Transaction } from './piWalletService';
 
 interface WalletContextType {
   wallet: Wallet | null;
   loading: boolean;
   error: string | null;
-  createNewWallet: () => void;
-  importWalletFromPrivateKey: (privateKey: string) => Promise<void>;
-  importWalletFromSeedPhrase: (seedPhrase: string) => Promise<void>;
+  createNewWallet: () => Promise<void>;
+  importWalletWithPrivateKey: (privateKey: string) => Promise<void>;
+  importWalletWithSeedPhrase: (seedPhrase: string) => Promise<void>;
   sendPi: (toAddress: string, amount: number) => Promise<Transaction>;
-  copyAddressToClipboard: () => Promise<void>;
+  refreshWallet: () => Promise<void>;
+  clearWallet: () => void;
   formatAddress: (address: string) => string;
   formatPiAmount: (amount: number) => string;
   formatTimestamp: (timestamp: number) => string;
   generateQRCode: () => string;
+  copyAddressToClipboard: () => Promise<void>;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -28,34 +30,31 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Check for saved wallet on component mount
+  // Load wallet from localStorage on component mount
   useEffect(() => {
     const savedWallet = localStorage.getItem('piWallet');
     if (savedWallet) {
       try {
         setWallet(JSON.parse(savedWallet));
       } catch (err) {
-        console.error('Failed to parse saved wallet', err);
+        console.error('Failed to parse saved wallet:', err);
         localStorage.removeItem('piWallet');
       }
     }
   }, []);
 
-  // Save wallet to localStorage when it changes
+  // Save wallet to localStorage whenever it changes
   useEffect(() => {
     if (wallet) {
       localStorage.setItem('piWallet', JSON.stringify(wallet));
     }
   }, [wallet]);
 
-  const createNewWallet = () => {
+  const createNewWallet = async () => {
     try {
       setLoading(true);
       setError(null);
-      const newWallet = PiWalletService.createWallet();
-      // For demo purposes, add some Pi and mock transactions
-      newWallet.balance = 1234.56;
-      newWallet.transactions = PiWalletService.generateMockTransactions(newWallet.address, 5);
+      const newWallet = await piWalletService.createWallet();
       setWallet(newWallet);
     } catch (err) {
       setError('Failed to create wallet');
@@ -65,31 +64,29 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     }
   };
 
-  const importWalletFromPrivateKey = async (privateKey: string): Promise<void> => {
+  const importWalletWithPrivateKey = async (privateKey: string) => {
     try {
       setLoading(true);
       setError(null);
-      const importedWallet = PiWalletService.importFromPrivateKey(privateKey);
+      const importedWallet = await piWalletService.importWalletFromPrivateKey(privateKey);
       setWallet(importedWallet);
     } catch (err) {
-      setError('Failed to import wallet from private key');
+      setError('Failed to import wallet with private key');
       console.error(err);
-      throw err;
     } finally {
       setLoading(false);
     }
   };
 
-  const importWalletFromSeedPhrase = async (seedPhrase: string): Promise<void> => {
+  const importWalletWithSeedPhrase = async (seedPhrase: string) => {
     try {
       setLoading(true);
       setError(null);
-      const importedWallet = PiWalletService.importFromSeedPhrase(seedPhrase);
+      const importedWallet = await piWalletService.importWalletFromSeedPhrase(seedPhrase);
       setWallet(importedWallet);
     } catch (err) {
-      setError('Failed to import wallet from seed phrase');
+      setError('Failed to import wallet with seed phrase');
       console.error(err);
-      throw err;
     } finally {
       setLoading(false);
     }
@@ -103,21 +100,39 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     try {
       setLoading(true);
       setError(null);
-      const transaction = await PiWalletService.sendPi(wallet, toAddress, amount);
-      // Update the wallet with the new balance and transaction
-      setWallet({ ...wallet });
-      return transaction;
+      const result = await piWalletService.sendPi(wallet, toAddress, amount);
+      setWallet(result.updatedWallet);
+      return result.transaction;
     } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('Failed to send Pi');
-      }
-      console.error(err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to send Pi';
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
     }
+  };
+
+  const refreshWallet = async () => {
+    if (!wallet) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      const updatedWallet = await piWalletService.refreshWallet(wallet);
+      setWallet(updatedWallet);
+    } catch (err) {
+      setError('Failed to refresh wallet');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const clearWallet = () => {
+    setWallet(null);
+    localStorage.removeItem('piWallet');
   };
 
   const copyAddressToClipboard = async (): Promise<void> => {
@@ -148,14 +163,16 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     loading,
     error,
     createNewWallet,
-    importWalletFromPrivateKey,
-    importWalletFromSeedPhrase,
+    importWalletWithPrivateKey,
+    importWalletWithSeedPhrase,
     sendPi,
-    copyAddressToClipboard,
-    formatAddress: PiWalletService.formatAddress,
-    formatPiAmount: PiWalletService.formatPiAmount,
-    formatTimestamp: PiWalletService.formatTimestamp,
+    refreshWallet,
+    clearWallet,
+    formatAddress: piWalletService.formatAddress,
+    formatPiAmount: piWalletService.formatPiAmount,
+    formatTimestamp: piWalletService.formatTimestamp,
     generateQRCode,
+    copyAddressToClipboard,
   };
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
