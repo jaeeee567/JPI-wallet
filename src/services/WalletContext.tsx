@@ -9,13 +9,14 @@ interface WalletContextType {
   createNewWallet: () => Promise<void>;
   importWalletWithPrivateKey: (privateKey: string) => Promise<void>;
   importWalletWithSeedPhrase: (seedPhrase: string) => Promise<void>;
+  importWalletWithAddress: (address: string) => Promise<void>;
   sendPi: (toAddress: string, amount: number) => Promise<Transaction>;
   refreshWallet: () => Promise<void>;
   clearWallet: () => void;
   formatAddress: (address: string) => string;
   formatPiAmount: (amount: number) => string;
   formatTimestamp: (timestamp: number) => string;
-  generateQRCode: () => string;
+  generateQRCode: (text: string) => string;
   copyAddressToClipboard: () => Promise<void>;
 }
 
@@ -92,6 +93,20 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     }
   };
 
+  const importWalletWithAddress = async (address: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const importedWallet = await piWalletService.importWalletFromAddress(address);
+      setWallet(importedWallet);
+    } catch (err) {
+      setError('Failed to import wallet with address');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const sendPi = async (toAddress: string, amount: number): Promise<Transaction> => {
     if (!wallet) {
       throw new Error('No wallet available');
@@ -136,26 +151,19 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
   };
 
   const copyAddressToClipboard = async (): Promise<void> => {
-    if (!wallet) {
-      throw new Error('No wallet available');
-    }
-
+    if (!wallet) return;
+    
     try {
       await navigator.clipboard.writeText(wallet.address);
     } catch (err) {
       console.error('Failed to copy address to clipboard', err);
-      throw err;
     }
   };
 
-  const generateQRCode = (): string => {
-    if (!wallet) {
-      return '';
-    }
-    
-    // In a real app, you would use a QR code library
-    // For this demo, we'll return a placeholder URL
-    return `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(wallet.address)}`;
+  const generateQRCode = (text: string): string => {
+    // This is a placeholder. In a real app, you would use a QR code library
+    // For now, we'll return a URL to a QR code generator service
+    return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(text)}`;
   };
 
   const value = {
@@ -165,6 +173,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     createNewWallet,
     importWalletWithPrivateKey,
     importWalletWithSeedPhrase,
+    importWalletWithAddress,
     sendPi,
     refreshWallet,
     clearWallet,

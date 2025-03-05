@@ -1,7 +1,7 @@
 // Pi Network Wallet Service
 // This is a mock implementation for demonstration purposes
 
-import { generateMnemonic, mnemonicToSeedSync } from 'bip39';
+import { generateMnemonic, mnemonicToSeedSync, validateMnemonic } from 'bip39';
 
 // Interface for Transaction
 export interface Transaction {
@@ -55,7 +55,7 @@ const sha256 = async (message: string): Promise<string> => {
  * Create a new wallet with a randomly generated private key and address
  */
 export const createWallet = async (): Promise<Wallet> => {
-  const seedPhrase = generateMnemonic();
+  const seedPhrase = generateMnemonic(256); // Generate 24-word seed phrase (256 bits)
   const seed = mnemonicToSeedSync(seedPhrase);
   const privateKey = generateRandomHex(64);
   const addressInput = privateKey + Date.now().toString();
@@ -86,10 +86,38 @@ export const importWalletFromPrivateKey = async (privateKey: string): Promise<Wa
 };
 
 /**
+ * Import a wallet using a wallet address
+ * In a real implementation, this would only allow viewing the wallet, not spending from it
+ */
+export const importWalletFromAddress = async (address: string): Promise<Wallet> => {
+  // Generate a mock private key for demo purposes
+  // In a real implementation, this would be a view-only wallet
+  const mockPrivateKey = generateRandomHex(64);
+  
+  return {
+    address,
+    privateKey: mockPrivateKey,
+    balance: 100, // Mock balance
+    transactions: generateMockTransactions(5, address),
+  };
+};
+
+/**
  * Import a wallet using a seed phrase
  */
 export const importWalletFromSeedPhrase = async (seedPhrase: string): Promise<Wallet> => {
   try {
+    // Validate the seed phrase
+    if (!validateMnemonic(seedPhrase)) {
+      throw new Error('Invalid seed phrase');
+    }
+    
+    // Check if it's a 24-word seed phrase
+    const wordCount = seedPhrase.trim().split(/\s+/).length;
+    if (wordCount !== 12 && wordCount !== 24) {
+      throw new Error(`Invalid seed phrase: expected 12 or 24 words, got ${wordCount}`);
+    }
+    
     const seed = mnemonicToSeedSync(seedPhrase);
     const privateKey = Array.from(seed.slice(0, 32))
       .map(b => b.toString(16).padStart(2, '0'))

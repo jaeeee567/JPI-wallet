@@ -16,6 +16,7 @@ function App() {
     createNewWallet, 
     importWalletWithPrivateKey, 
     importWalletWithSeedPhrase,
+    importWalletWithAddress,
     refreshWallet,
     clearWallet,
     copyAddressToClipboard,
@@ -29,7 +30,8 @@ function App() {
   const [showQRCodeModal, setShowQRCodeModal] = useState(false);
   const [privateKeyInput, setPrivateKeyInput] = useState('');
   const [seedPhraseInput, setSeedPhraseInput] = useState('');
-  const [importType, setImportType] = useState<'privateKey' | 'seedPhrase'>('privateKey');
+  const [addressInput, setAddressInput] = useState('');
+  const [importType, setImportType] = useState<'privateKey' | 'seedPhrase' | 'address'>('privateKey');
 
   // Handle wallet creation or import
   const handleCreateWallet = async () => {
@@ -41,6 +43,8 @@ function App() {
       await importWalletWithPrivateKey(privateKeyInput);
     } else if (importType === 'seedPhrase' && seedPhraseInput) {
       await importWalletWithSeedPhrase(seedPhraseInput);
+    } else if (importType === 'address' && addressInput) {
+      await importWalletWithAddress(addressInput);
     }
   };
 
@@ -166,9 +170,15 @@ function App() {
                 >
                   Seed Phrase
                 </button>
+                <button
+                  onClick={() => setImportType('address')}
+                  className={`flex-1 py-2 ${importType === 'address' ? 'border-b-2 border-orange-500 text-orange-500' : 'text-gray-500'}`}
+                >
+                  Address
+                </button>
               </div>
               
-              {importType === 'privateKey' ? (
+              {importType === 'privateKey' && (
                 <input
                   type="text"
                   placeholder="Enter private key"
@@ -176,19 +186,35 @@ function App() {
                   value={privateKeyInput}
                   onChange={(e) => setPrivateKeyInput(e.target.value)}
                 />
-              ) : (
+              )}
+              
+              {importType === 'seedPhrase' && (
                 <textarea
-                  placeholder="Enter seed phrase (12 words separated by spaces)"
+                  placeholder="Enter seed phrase (12 or 24 words separated by spaces)"
                   className="w-full p-3 border border-gray-300 rounded-lg mb-4 h-24"
                   value={seedPhraseInput}
                   onChange={(e) => setSeedPhraseInput(e.target.value)}
                 />
               )}
               
+              {importType === 'address' && (
+                <input
+                  type="text"
+                  placeholder="Enter wallet address"
+                  className="w-full p-3 border border-gray-300 rounded-lg mb-4"
+                  value={addressInput}
+                  onChange={(e) => setAddressInput(e.target.value)}
+                />
+              )}
+              
               <button
                 onClick={handleImportWallet}
                 className="w-full bg-gray-100 text-gray-800 py-3 rounded-lg flex items-center justify-center hover:bg-gray-200 transition-colors"
-                disabled={loading || (!privateKeyInput && !seedPhraseInput)}
+                disabled={loading || 
+                  (importType === 'privateKey' && !privateKeyInput) || 
+                  (importType === 'seedPhrase' && !seedPhraseInput) ||
+                  (importType === 'address' && !addressInput)
+                }
               >
                 {loading ? 'Importing...' : 'Import Wallet'}
               </button>
