@@ -206,23 +206,41 @@ export const importWalletFromPrivateKey = async (privateKey: string): Promise<Wa
  * This provides full access to the wallet
  */
 export const importWalletFromAddressAndSeedPhrase = async (address: string, seedPhrase: string): Promise<Wallet> => {
+  console.log('Attempting to import wallet with address and seed phrase', { address, seedPhraseLength: seedPhrase.length });
+  
+  // Validate inputs
+  if (!address || !seedPhrase) {
+    console.error('Missing required parameters', { hasAddress: !!address, hasSeedPhrase: !!seedPhrase });
+    throw new Error('Both wallet address and seed phrase are required');
+  }
+  
   try {
     // Validate the seed phrase
     if (!validateMnemonic(seedPhrase)) {
-      throw new Error('Invalid seed phrase');
+      console.error('Invalid seed phrase format');
+      throw new Error('Invalid seed phrase format');
     }
     
     // Check if it's a 24-word seed phrase
-    const wordCount = seedPhrase.trim().split(/\s+/).length;
+    const words = seedPhrase.trim().split(/\s+/);
+    const wordCount = words.length;
+    console.log(`Seed phrase word count: ${wordCount}`);
+    
     if (wordCount !== 24) {
+      console.error(`Invalid seed phrase length: expected 24 words, got ${wordCount}`);
       throw new Error(`Invalid seed phrase: expected 24 words, got ${wordCount}`);
     }
     
     // Check if the Pi Network API is configured
-    if (piNetworkApi.isApiConfigured()) {
+    const isApiConfigured = piNetworkApi.isApiConfigured();
+    console.log('Pi Network API configured:', isApiConfigured);
+    
+    if (isApiConfigured) {
       try {
         // Try to get wallet data from the Pi Network API
+        console.log('Fetching wallet data from Pi Network API');
         const response = await piNetworkApi.getWalletByAddress(address);
+        console.log('API response:', response);
         
         if (response.success && response.data) {
           // Generate private key from seed phrase
@@ -231,6 +249,7 @@ export const importWalletFromAddressAndSeedPhrase = async (address: string, seed
             .map(b => b.toString(16).padStart(2, '0'))
             .join('');
           
+          console.log('Successfully imported wallet with API data');
           return {
             address: response.data.address,
             privateKey,
@@ -243,28 +262,39 @@ export const importWalletFromAddressAndSeedPhrase = async (address: string, seed
           };
         }
         
+        console.error('API error:', response.error);
         throw new Error(response.error || 'Failed to fetch wallet data');
       } catch (error) {
-        console.error('Error importing wallet:', error);
+        console.error('Error importing wallet from API:', error);
         // Fall back to local generation if API call fails
+        console.log('Falling back to local wallet generation');
       }
     }
     
     // Generate wallet locally if API is not configured or call failed
+    console.log('Generating wallet locally');
     const seed = mnemonicToSeedSync(seedPhrase);
     const privateKey = Array.from(seed.slice(0, 32))
       .map(b => b.toString(16).padStart(2, '0'))
       .join('');
     
-    return {
+    const wallet = {
       address,
       privateKey,
       balance: 100, // Mock balance
       transactions: generateMockTransactions(5, address),
       seedPhrase
     };
+    
+    console.log('Successfully created local wallet');
+    return wallet;
   } catch (error) {
-    throw new Error('Invalid seed phrase or address');
+    console.error('Error in importWalletFromAddressAndSeedPhrase:', error);
+    if (error instanceof Error) {
+      throw error; // Rethrow the original error with its message
+    } else {
+      throw new Error('Failed to import wallet with address and seed phrase');
+    }
   }
 };
 

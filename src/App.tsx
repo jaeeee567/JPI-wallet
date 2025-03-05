@@ -38,12 +38,36 @@ function App() {
   };
 
   const handleImportWallet = async () => {
-    if (importType === 'address' && addressInput) {
-      await importWalletWithAddress(addressInput);
-    } else if (importType === 'seedPhrase' && seedPhraseInput) {
-      await importWalletWithSeedPhrase(seedPhraseInput);
-    } else if (importType === 'combined' && addressInput && seedPhraseInput) {
-      await importWalletWithAddressAndSeedPhrase(addressInput, seedPhraseInput);
+    try {
+      if (importType === 'address' && addressInput) {
+        console.log('Importing wallet with address:', addressInput);
+        await importWalletWithAddress(addressInput);
+      } else if (importType === 'seedPhrase' && seedPhraseInput) {
+        console.log('Importing wallet with seed phrase, length:', seedPhraseInput.trim().split(/\s+/).length);
+        await importWalletWithSeedPhrase(seedPhraseInput);
+      } else if (importType === 'combined' && addressInput && seedPhraseInput) {
+        console.log('Importing wallet with combined method');
+        console.log('Address:', addressInput);
+        console.log('Seed phrase word count:', seedPhraseInput.trim().split(/\s+/).length);
+        
+        // Validate address format
+        if (!/^[a-zA-Z0-9]{30,50}$/.test(addressInput.trim())) {
+          throw new Error('Invalid wallet address format');
+        }
+        
+        // Validate seed phrase
+        const words = seedPhraseInput.trim().split(/\s+/);
+        if (words.length !== 24) {
+          throw new Error(`Seed phrase must contain exactly 24 words (found ${words.length})`);
+        }
+        
+        await importWalletWithAddressAndSeedPhrase(addressInput.trim(), seedPhraseInput.trim());
+      } else {
+        throw new Error('Please provide the required information for the selected import method');
+      }
+    } catch (err) {
+      console.error('Import error:', err);
+      // The error will be caught and displayed by the WalletContext
     }
   };
 
