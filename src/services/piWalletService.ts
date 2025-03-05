@@ -124,25 +124,30 @@ export const importWalletFromAddress = async (address: string): Promise<Wallet> 
 export const importWalletFromSeedPhrase = async (seedPhrase: string): Promise<Wallet> => {
   try {
     // Validate the seed phrase
-    if (!validateMnemonic(seedPhrase)) {
-      throw new Error('Invalid seed phrase');
+    const normalizedSeedPhrase = seedPhrase.trim().toLowerCase();
+    
+    // Check if it's a valid seed phrase with proper word count
+    const words = normalizedSeedPhrase.split(/\s+/);
+    if (words.length !== 12 && words.length !== 24) {
+      throw new Error(`Invalid seed phrase: expected 12 or 24 words, got ${words.length}`);
     }
     
-    // Check if it's a 24-word seed phrase
-    const wordCount = seedPhrase.trim().split(/\s+/).length;
-    if (wordCount !== 24) {
-      throw new Error(`Invalid seed phrase: expected 24 words, got ${wordCount}`);
+    // Use BIP39 validation, but provide more helpful error if it fails
+    if (!validateMnemonic(normalizedSeedPhrase)) {
+      console.error('Seed phrase validation failed. Make sure all words are valid BIP39 words.');
+      throw new Error('Invalid seed phrase. Make sure all words are from the BIP39 word list.');
     }
     
     // Check if the Pi Network API is configured
     if (piNetworkApi.isApiConfigured()) {
       try {
         // Try to get wallet data from the Pi Network API
-        const response = await piNetworkApi.getWalletBySeedPhrase(seedPhrase);
+        console.log('Fetching wallet data from Pi Network API using seed phrase');
+        const response = await piNetworkApi.getWalletBySeedPhrase(normalizedSeedPhrase);
         
         if (response.success && response.data) {
           // Generate private key from seed phrase
-          const seed = mnemonicToSeedSync(seedPhrase);
+          const seed = mnemonicToSeedSync(normalizedSeedPhrase);
           const privateKey = Array.from(seed.slice(0, 32))
             .map(b => b.toString(16).padStart(2, '0'))
             .join('');
@@ -155,19 +160,21 @@ export const importWalletFromSeedPhrase = async (seedPhrase: string): Promise<Wa
               ...tx,
               type: tx.from === response.data.address ? 'send' : 'receive'
             })),
-            seedPhrase
+            seedPhrase: normalizedSeedPhrase,
+            isViewOnly: false
           };
+        } else {
+          console.error('API error:', response.error);
+          throw new Error(response.error || 'Failed to fetch wallet data from Pi Network API');
         }
-        
-        throw new Error(response.error || 'Failed to fetch wallet data');
       } catch (error) {
-        console.error('Error importing wallet from seed phrase:', error);
+        console.error('Error fetching wallet from Pi Network API:', error);
         // Fall back to local generation if API call fails
       }
     }
     
     // Generate wallet locally if API is not configured or call failed
-    const seed = mnemonicToSeedSync(seedPhrase);
+    const seed = mnemonicToSeedSync(normalizedSeedPhrase);
     const privateKey = Array.from(seed.slice(0, 32))
       .map(b => b.toString(16).padStart(2, '0'))
       .join('');
@@ -180,10 +187,14 @@ export const importWalletFromSeedPhrase = async (seedPhrase: string): Promise<Wa
       privateKey,
       balance: 100, // Mock balance
       transactions: generateMockTransactions(5, address.substring(0, 40)),
-      seedPhrase
+      seedPhrase: normalizedSeedPhrase
     };
   } catch (error) {
-    throw new Error('Invalid seed phrase');
+    if (error instanceof Error) {
+      throw error;
+    } else {
+      throw new Error('Failed to import wallet with seed phrase');
+    }
   }
 };
 
@@ -216,14 +227,18 @@ export const importWalletFromAddressAndSeedPhrase = async (address: string, seed
   
   try {
     // Validate the seed phrase
-    if (!validateMnemonic(seedPhrase)) {
-      throw new Error('Invalid seed phrase format');
+    const normalizedSeedPhrase = seedPhrase.trim().toLowerCase();
+    
+    // Check if it's a valid seed phrase with proper word count
+    const words = normalizedSeedPhrase.split(/\s+/);
+    if (words.length !== 12 && words.length !== 24) {
+      throw new Error(`Invalid seed phrase: expected 12 or 24 words, got ${words.length}`);
     }
     
-    // Check if it's a 24-word seed phrase
-    const words = seedPhrase.trim().split(/\s+/);
-    if (words.length !== 24) {
-      throw new Error(`Invalid seed phrase: expected 24 words, got ${words.length}`);
+    // Use BIP39 validation, but provide more helpful error if it fails
+    if (!validateMnemonic(normalizedSeedPhrase)) {
+      console.error('Seed phrase validation failed. Make sure all words are valid BIP39 words.');
+      throw new Error('Invalid seed phrase. Make sure all words are from the BIP39 word list.');
     }
     
     // Check if the Pi Network API is configured
@@ -235,7 +250,7 @@ export const importWalletFromAddressAndSeedPhrase = async (address: string, seed
         
         if (response.success && response.data) {
           // Generate private key from seed phrase
-          const seed = mnemonicToSeedSync(seedPhrase);
+          const seed = mnemonicToSeedSync(normalizedSeedPhrase);
           const privateKey = Array.from(seed.slice(0, 32))
             .map(b => b.toString(16).padStart(2, '0'))
             .join('');
@@ -249,7 +264,7 @@ export const importWalletFromAddressAndSeedPhrase = async (address: string, seed
               ...tx,
               type: tx.from === response.data.address ? 'send' : 'receive'
             })),
-            seedPhrase
+            seedPhrase: normalizedSeedPhrase
           };
         } else {
           console.error('API error:', response.error);
@@ -329,14 +344,18 @@ export const importWalletWithSeedPhrase = async (seedPhrase: string): Promise<Wa
   
   try {
     // Validate the seed phrase
-    if (!validateMnemonic(seedPhrase)) {
-      throw new Error('Invalid seed phrase format');
+    const normalizedSeedPhrase = seedPhrase.trim().toLowerCase();
+    
+    // Check if it's a valid seed phrase with proper word count
+    const words = normalizedSeedPhrase.split(/\s+/);
+    if (words.length !== 12 && words.length !== 24) {
+      throw new Error(`Invalid seed phrase: expected 12 or 24 words, got ${words.length}`);
     }
     
-    // Check if it's a 24-word seed phrase
-    const words = seedPhrase.trim().split(/\s+/);
-    if (words.length !== 24) {
-      throw new Error(`Invalid seed phrase: expected 24 words, got ${words.length}`);
+    // Use BIP39 validation, but provide more helpful error if it fails
+    if (!validateMnemonic(normalizedSeedPhrase)) {
+      console.error('Seed phrase validation failed. Make sure all words are valid BIP39 words.');
+      throw new Error('Invalid seed phrase. Make sure all words are from the BIP39 word list.');
     }
     
     // Check if the Pi Network API is configured
@@ -344,11 +363,11 @@ export const importWalletWithSeedPhrase = async (seedPhrase: string): Promise<Wa
       try {
         // Try to get wallet data from the Pi Network API using the seed phrase
         console.log('Fetching wallet data from Pi Network API using seed phrase');
-        const response = await piNetworkApi.getWalletBySeedPhrase(seedPhrase);
+        const response = await piNetworkApi.getWalletBySeedPhrase(normalizedSeedPhrase);
         
         if (response.success && response.data) {
           // Generate private key from seed phrase
-          const seed = mnemonicToSeedSync(seedPhrase);
+          const seed = mnemonicToSeedSync(normalizedSeedPhrase);
           const privateKey = Array.from(seed.slice(0, 32))
             .map(b => b.toString(16).padStart(2, '0'))
             .join('');
@@ -362,7 +381,8 @@ export const importWalletWithSeedPhrase = async (seedPhrase: string): Promise<Wa
               ...tx,
               type: tx.from === response.data.address ? 'send' : 'receive'
             })),
-            seedPhrase
+            seedPhrase: normalizedSeedPhrase,
+            isViewOnly: false
           };
         } else {
           console.error('API error:', response.error);
