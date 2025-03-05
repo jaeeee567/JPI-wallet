@@ -14,9 +14,8 @@ function App() {
     loading, 
     error, 
     createNewWallet, 
-    importWalletWithPrivateKey, 
-    importWalletWithSeedPhrase,
     importWalletWithAddress,
+    importWalletWithSeedPhrase,
     refreshWallet,
     clearWallet,
     copyAddressToClipboard,
@@ -28,10 +27,9 @@ function App() {
   const [showSendModal, setShowSendModal] = useState(false);
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [showQRCodeModal, setShowQRCodeModal] = useState(false);
-  const [privateKeyInput, setPrivateKeyInput] = useState('');
-  const [seedPhraseInput, setSeedPhraseInput] = useState('');
   const [addressInput, setAddressInput] = useState('');
-  const [importType, setImportType] = useState<'privateKey' | 'seedPhrase' | 'address'>('privateKey');
+  const [seedPhraseInput, setSeedPhraseInput] = useState('');
+  const [importType, setImportType] = useState<'address' | 'seedPhrase'>('address');
 
   // Handle wallet creation or import
   const handleCreateWallet = async () => {
@@ -39,12 +37,10 @@ function App() {
   };
 
   const handleImportWallet = async () => {
-    if (importType === 'privateKey' && privateKeyInput) {
-      await importWalletWithPrivateKey(privateKeyInput);
+    if (importType === 'address' && addressInput) {
+      await importWalletWithAddress(addressInput);
     } else if (importType === 'seedPhrase' && seedPhraseInput) {
       await importWalletWithSeedPhrase(seedPhraseInput);
-    } else if (importType === 'address' && addressInput) {
-      await importWalletWithAddress(addressInput);
     }
   };
 
@@ -159,43 +155,18 @@ function App() {
             <div className="mb-4">
               <div className="flex mb-4">
                 <button
-                  onClick={() => setImportType('privateKey')}
-                  className={`flex-1 py-2 ${importType === 'privateKey' ? 'border-b-2 border-orange-500 text-orange-500' : 'text-gray-500'}`}
-                >
-                  Private Key
-                </button>
-                <button
-                  onClick={() => setImportType('seedPhrase')}
-                  className={`flex-1 py-2 ${importType === 'seedPhrase' ? 'border-b-2 border-orange-500 text-orange-500' : 'text-gray-500'}`}
-                >
-                  Seed Phrase
-                </button>
-                <button
                   onClick={() => setImportType('address')}
                   className={`flex-1 py-2 ${importType === 'address' ? 'border-b-2 border-orange-500 text-orange-500' : 'text-gray-500'}`}
                 >
                   Address
                 </button>
+                <button
+                  onClick={() => setImportType('seedPhrase')}
+                  className={`flex-1 py-2 ${importType === 'seedPhrase' ? 'border-b-2 border-orange-500 text-orange-500' : 'text-gray-500'}`}
+                >
+                  24-Word Seed Phrase
+                </button>
               </div>
-              
-              {importType === 'privateKey' && (
-                <input
-                  type="text"
-                  placeholder="Enter private key"
-                  className="w-full p-3 border border-gray-300 rounded-lg mb-4"
-                  value={privateKeyInput}
-                  onChange={(e) => setPrivateKeyInput(e.target.value)}
-                />
-              )}
-              
-              {importType === 'seedPhrase' && (
-                <textarea
-                  placeholder="Enter seed phrase (12 or 24 words separated by spaces)"
-                  className="w-full p-3 border border-gray-300 rounded-lg mb-4 h-24"
-                  value={seedPhraseInput}
-                  onChange={(e) => setSeedPhraseInput(e.target.value)}
-                />
-              )}
               
               {importType === 'address' && (
                 <input
@@ -207,13 +178,21 @@ function App() {
                 />
               )}
               
+              {importType === 'seedPhrase' && (
+                <textarea
+                  placeholder="Enter 24-word seed phrase (separated by spaces)"
+                  className="w-full p-3 border border-gray-300 rounded-lg mb-4 h-24"
+                  value={seedPhraseInput}
+                  onChange={(e) => setSeedPhraseInput(e.target.value)}
+                />
+              )}
+              
               <button
                 onClick={handleImportWallet}
                 className="w-full bg-gray-100 text-gray-800 py-3 rounded-lg flex items-center justify-center hover:bg-gray-200 transition-colors"
                 disabled={loading || 
-                  (importType === 'privateKey' && !privateKeyInput) || 
-                  (importType === 'seedPhrase' && !seedPhraseInput) ||
-                  (importType === 'address' && !addressInput)
+                  (importType === 'address' && !addressInput) || 
+                  (importType === 'seedPhrase' && !seedPhraseInput)
                 }
               >
                 {loading ? 'Importing...' : 'Import Wallet'}

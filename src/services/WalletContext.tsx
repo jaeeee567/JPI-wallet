@@ -7,9 +7,8 @@ interface WalletContextType {
   loading: boolean;
   error: string | null;
   createNewWallet: () => Promise<void>;
-  importWalletWithPrivateKey: (privateKey: string) => Promise<void>;
-  importWalletWithSeedPhrase: (seedPhrase: string) => Promise<void>;
   importWalletWithAddress: (address: string) => Promise<void>;
+  importWalletWithSeedPhrase: (seedPhrase: string) => Promise<void>;
   sendPi: (toAddress: string, amount: number) => Promise<Transaction>;
   refreshWallet: () => Promise<void>;
   clearWallet: () => void;
@@ -65,14 +64,14 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     }
   };
 
-  const importWalletWithPrivateKey = async (privateKey: string) => {
+  const importWalletWithAddress = async (address: string) => {
     try {
       setLoading(true);
       setError(null);
-      const importedWallet = await piWalletService.importWalletFromPrivateKey(privateKey);
+      const importedWallet = await piWalletService.importWalletFromAddress(address);
       setWallet(importedWallet);
     } catch (err) {
-      setError('Failed to import wallet with private key');
+      setError('Failed to import wallet with address');
       console.error(err);
     } finally {
       setLoading(false);
@@ -87,20 +86,6 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
       setWallet(importedWallet);
     } catch (err) {
       setError('Failed to import wallet with seed phrase');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const importWalletWithAddress = async (address: string) => {
-    try {
-      setLoading(true);
-      setError(null);
-      const importedWallet = await piWalletService.importWalletFromAddress(address);
-      setWallet(importedWallet);
-    } catch (err) {
-      setError('Failed to import wallet with address');
       console.error(err);
     } finally {
       setLoading(false);
@@ -171,9 +156,8 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     loading,
     error,
     createNewWallet,
-    importWalletWithPrivateKey,
-    importWalletWithSeedPhrase,
     importWalletWithAddress,
+    importWalletWithSeedPhrase,
     sendPi,
     refreshWallet,
     clearWallet,
